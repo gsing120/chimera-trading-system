@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  # Backend API Service
+  chimera-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: chimera-trading-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONPATH=/app
+      - FLASK_ENV=production
+      - DATA_SOURCE=ibkr  # Use 'mock' for testing, 'ibkr' for live
+      - IBKR_HOST=${IBKR_HOST:-127.0.0.1}
+      - IBKR_PORT=${IBKR_PORT:-7497}
+      - IBKR_CLIENT_ID=${IBKR_CLIENT_ID:-1}
+      - IBKR_READONLY=${IBKR_READONLY:-true}
+    volumes:
+      # External mock data (kept outside container)
+      - ./external_data:/app/external_data
+      # Database persistence
+      - ./data/db:/app/data/db
+      # Logs
+      - ./logs:/app/logs
+      # Configuration
+      - ./config:/app/config
+    networks:
+      - chimera-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - chimera-database
+
+  # Frontend Dashboard Service
+  chimera-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: chimera-trading-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5000
+      - REACT_APP_WS_URL=ws://localhost:5000
+    networks:
+      - chimera-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      - chimera-backend
+
+  # Database Service (SQLite with persistence)
+  chimera-database:
+    image: alpine:latest
+    container_name: chimera-trading-database
+    volumes:
+      - ./data/db:/data
+    command: ["sh", "-c", "mkdir -p /data && touch /data/.keep && tail -f /dev/null"]
+    networks:
+      - chimera-network
+    restart: unless-stopped
+
+  # Mock Data Generator (External Service)
+  chimera-mock-data:
+    build:
+      context: .
+      dockerfile: Dockerfile.mockdata
+    container_name: chimera-mock-data-generator
+    volumes:
+      - ./external_data:/app/data
+    environment:
+      - SYMBOLS=AAPL,MSFT,GOOGL,AMZN,TSLA,NVDA,META,SPY,QQQ
+      - UPDATE_INTERVAL=0.1
+      - GENERATE_TRADES=true
+      - GENERATE_LEVEL2=true
+    networks:
+      - chimera-network
+    restart: unless-stopped
+    profiles:
+      - mock  # Only start with 'mock' profile
+
+  # IBKR Gateway Proxy (Optional)
+  ibkr-gateway:
+    image: gnzsnz/ib-gateway:latest
+    container_name: chimera-ibkr-gateway
+    ports:
+      - "4001:4001"  # TWS API port
+      - "4002:4002"  # Gateway API port
+    environment:
+      - TWS_USERID=${TWS_USERID}
+      - TWS_PASSWORD=${TWS_PASSWORD}
+      - TRADING_MODE=${TRADING_MODE:-paper}
+      - VNC_SERVER_PASSWORD=${VNC_PASSWORD:-chimera123}
+    volumes:
+      - ./ibkr_settings:/root/Jts
+    networks:
+      - chimera-network
+    restart: unless-stopped
+    profiles:
+      - ibkr  # Only start with 'ibkr' profile
+
+networks:
+  chimera-network:
+    driver: bridge
+    name: chimera-trading-network
+
+volumes:
+  chimera-db:
+    driver: local
+  chimera-logs:
+    driver: local
+  external-data:
+    driver: local
+

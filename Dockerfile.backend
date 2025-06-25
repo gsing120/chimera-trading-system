@@ -1,0 +1,53 @@
+# Chimera Trading System - Backend API
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install IBKR dependencies
+RUN pip install --no-cache-dir ib-insync ibapi
+
+# Copy the application code
+COPY core/ ./core/
+COPY ml/ ./ml/
+COPY data/ ./data/
+COPY execution/ ./execution/
+COPY visualization/ ./visualization/
+COPY tests/ ./tests/
+COPY config/ ./config/
+COPY dashboard_api/ ./dashboard_api/
+COPY main.py .
+COPY __init__.py .
+
+# Create necessary directories
+RUN mkdir -p logs external_data data/db
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV DATA_SOURCE=ibkr
+
+# Expose the port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:5000/api/system/status || exit 1
+
+# Run the application
+CMD ["python", "dashboard_api/src/main.py"]
+

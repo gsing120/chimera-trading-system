@@ -1,0 +1,24 @@
+# Mock Data Generator - External Service
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir numpy pandas
+
+# Copy mock data generator
+COPY data/mock_data_generator.py .
+COPY data/__init__.py .
+COPY core/order_book.py ./core/
+COPY core/__init__.py ./core/
+
+# Create data directory
+RUN mkdir -p data
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Run the mock data generator
+CMD ["python", "-c", "from mock_data_generator import MockDataGenerator; import time; import os; generator = MockDataGenerator(); generator.start(); symbols = os.getenv('SYMBOLS', 'AAPL,MSFT,GOOGL,AMZN').split(','); [generator.subscribe(symbol) for symbol in symbols]; print(f'Mock data generator started for {symbols}'); [time.sleep(1) for _ in iter(int, 1)]"]
+
