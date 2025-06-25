@@ -1,0 +1,237 @@
+# Chimera Trading System v2.0 - Complete Setup and Run Commands
+
+## QUICK START (One Command)
+# Start the complete system with one command:
+./start_complete_system.sh
+
+## MANUAL SETUP AND RUN COMMANDS
+
+### 1. SYSTEM REQUIREMENTS
+# Ensure you have Python 3.11+ and Node.js 20+ installed
+python3 --version  # Should be 3.11+
+node --version      # Should be 20+
+npm --version
+
+### 2. INSTALL PYTHON DEPENDENCIES
+# Install all required Python packages
+pip install -r requirements.txt
+
+# Or install specific packages manually:
+pip install numpy pandas scikit-learn flask flask-cors flask-socketio matplotlib plotly
+
+### 3. SETUP BACKEND API
+# Navigate to dashboard API directory
+cd dashboard_api
+
+# Create virtual environment (optional but recommended)
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install backend dependencies
+pip install -r requirements.txt
+
+### 4. SETUP FRONTEND DASHBOARD
+# Navigate to dashboard frontend directory
+cd ../dashboard_frontend
+
+# Install Node.js dependencies
+npm install
+# OR using pnpm (faster):
+pnpm install
+
+### 5. START THE SYSTEM
+
+#### Option A: Start Everything Manually
+
+# Terminal 1: Start Backend API
+cd dashboard_api
+source venv/bin/activate  # If using virtual environment
+python src/main.py
+
+# Terminal 2: Start Frontend Dashboard
+cd dashboard_frontend
+npm run dev --host
+# OR using pnpm:
+pnpm run dev --host
+
+#### Option B: Start with Background Processes
+
+# Start backend in background
+cd dashboard_api && source venv/bin/activate && python src/main.py &
+
+# Start frontend in background
+cd dashboard_frontend && pnpm run dev --host &
+
+### 6. ACCESS THE SYSTEM
+# Frontend Dashboard: http://localhost:5173
+# Backend API: http://localhost:5000
+# API Documentation: http://localhost:5000/api/system/status
+
+### 7. START TRADING SYSTEM
+# Once both services are running, start the trading system:
+curl -X POST http://localhost:5000/api/system/start
+
+# Or use the "Start System" button in the dashboard
+
+### 8. STOP THE SYSTEM
+# Stop trading system:
+curl -X POST http://localhost:5000/api/system/stop
+
+# Stop all processes:
+pkill -f "python.*main.py"
+pkill -f "node.*vite"
+
+## TESTING COMMANDS
+
+### Test Core Trading System
+cd chimera_trading_system
+python main.py test
+
+### Test Individual Components
+python -c "
+from core.data_orchestrator import DataOrchestrator
+from core.feature_engine import FeatureEngine
+from core.signal_detector import SignalDetector
+from data.mock_data_generator import MockDataGenerator
+
+# Test components
+print('Testing core components...')
+orchestrator = DataOrchestrator('test.db')
+feature_engine = FeatureEngine()
+signal_detector = SignalDetector(feature_engine)
+mock_generator = MockDataGenerator(orchestrator)
+print('All components initialized successfully!')
+"
+
+### Test API Endpoints
+curl http://localhost:5000/api/system/status
+curl http://localhost:5000/api/trading/data
+curl http://localhost:5000/api/performance/metrics
+curl http://localhost:5000/api/risk/metrics
+
+## DEVELOPMENT COMMANDS
+
+### Run System Demo
+python main.py demo
+
+### Check System Health
+python -c "
+import sys
+sys.path.append('.')
+from tests.test_integration import run_integration_tests
+run_integration_tests()
+"
+
+### Generate Mock Data
+python -c "
+from data.mock_data_generator import MockDataGenerator
+from core.data_orchestrator import DataOrchestrator
+
+orchestrator = DataOrchestrator('test.db')
+generator = MockDataGenerator(orchestrator)
+order_book = generator.get_order_book()
+print(f'Generated order book with {len(order_book.get_bids())} bids and {len(order_book.get_asks())} asks')
+"
+
+## DEPLOYMENT COMMANDS
+
+### Build Frontend for Production
+cd dashboard_frontend
+npm run build
+# OR using pnpm:
+pnpm run build
+
+### Run Production Backend
+cd dashboard_api
+source venv/bin/activate
+gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:5000 src.main:app
+
+## TROUBLESHOOTING COMMANDS
+
+### Check if ports are in use
+netstat -tlnp | grep 5000  # Backend port
+netstat -tlnp | grep 5173  # Frontend port
+
+### Kill processes on specific ports
+sudo lsof -ti:5000 | xargs kill -9  # Kill backend
+sudo lsof -ti:5173 | xargs kill -9  # Kill frontend
+
+### Check Python packages
+pip list | grep -E "(flask|numpy|pandas|scikit)"
+
+### Check Node.js packages
+cd dashboard_frontend && npm list
+
+### View logs
+# Backend logs are printed to console
+# Frontend logs are in browser console (F12)
+
+### Reset Database
+rm -f *.db  # Remove all database files
+python -c "
+from core.data_orchestrator import DataOrchestrator
+DataOrchestrator('trading_system.db')  # Recreate database
+print('Database reset successfully')
+"
+
+## LIVE DATA INTEGRATION COMMANDS
+
+### Install Live Data Dependencies
+# For Interactive Brokers:
+pip install ib-insync ibapi
+
+# For DXFeed:
+pip install dxfeed
+
+# For MooMoo:
+pip install futu-api
+
+# For Yahoo Finance (free):
+pip install yfinance
+
+### Configure Live Data Sources
+# Edit the configuration in data/data_interface.py
+# Set your API keys and credentials in environment variables:
+export IBKR_ACCOUNT="your_account_number"
+export DXFEED_API_KEY="your_api_key"
+export MOOMOO_API_KEY="your_api_key"
+
+## SYSTEM MONITORING COMMANDS
+
+### Monitor System Performance
+# Check CPU and memory usage
+top -p $(pgrep -f "python.*main.py")
+
+### Monitor Network Connections
+netstat -an | grep -E "(5000|5173)"
+
+### Check System Logs
+tail -f /var/log/syslog | grep -i chimera
+
+## BACKUP AND RESTORE COMMANDS
+
+### Backup Trading Data
+cp *.db backup/
+tar -czf chimera_backup_$(date +%Y%m%d).tar.gz *.db logs/
+
+### Restore Trading Data
+tar -xzf chimera_backup_YYYYMMDD.tar.gz
+
+## PERFORMANCE OPTIMIZATION COMMANDS
+
+### Check Memory Usage
+python -c "
+import psutil
+import os
+process = psutil.Process(os.getpid())
+print(f'Memory usage: {process.memory_info().rss / 1024 / 1024:.2f} MB')
+"
+
+### Profile System Performance
+python -m cProfile -o profile_output.prof main.py demo
+python -c "
+import pstats
+stats = pstats.Stats('profile_output.prof')
+stats.sort_stats('cumulative').print_stats(10)
+"
+
