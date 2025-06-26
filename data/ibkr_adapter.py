@@ -19,14 +19,14 @@ except ImportError:
     IBKR_AVAILABLE = False
     print("WARNING: ib_insync not installed. Install with: pip install ib_insync")
 
-from data.data_interface import DataSourceInterface, Level2Update, TradeData, QuoteData
-from core.order_book import OrderBook, PriceLevel
+from data.data_interface import DataSourceInterface, Level2Update, TradeUpdate, QuoteUpdate
+from core.order_book import OrderBook, OrderBookLevel
 
 @dataclass
 class IBKRConfig:
     """IBKR Connection Configuration"""
     host: str = "127.0.0.1"
-    port: int = 7497  # 7497 for paper trading, 7496 for live
+    port: int = 4002  # 4002 for Gateway paper trading, 4001 for Gateway live
     client_id: int = 1
     timeout: int = 10
     readonly: bool = True
@@ -125,7 +125,7 @@ class IBKRAdapter(DataSourceInterface):
             self.logger.error(f"Failed to subscribe to {symbol}: {e}")
             raise
     
-    def subscribe_trades(self, symbol: str, callback: Callable[[TradeData], None]):
+    def subscribe_trades(self, symbol: str, callback: Callable[[TradeUpdate], None]):
         """Subscribe to trade data for a symbol"""
         # Trade data comes through the same ticker subscription
         if symbol in self.subscriptions:
@@ -138,7 +138,7 @@ class IBKRAdapter(DataSourceInterface):
             self.subscribe_level2(symbol, lambda x: None)  # Dummy callback
             self.subscriptions[symbol]['trade_callbacks'] = [callback]
     
-    def subscribe_quotes(self, symbol: str, callback: Callable[[QuoteData], None]):
+    def subscribe_quotes(self, symbol: str, callback: Callable[[QuoteUpdate], None]):
         """Subscribe to quote data for a symbol"""
         # Quote data comes through the same ticker subscription
         if symbol in self.subscriptions:
@@ -231,7 +231,7 @@ class IBKRAdapter(DataSourceInterface):
             
             # Handle trade data
             if hasattr(ticker, 'last') and ticker.last > 0:
-                trade_data = TradeData(
+                trade_data = TradeUpdate(
                     symbol=symbol,
                     price=float(ticker.last),
                     size=int(ticker.lastSize) if ticker.lastSize else 0,
@@ -250,7 +250,7 @@ class IBKRAdapter(DataSourceInterface):
             # Handle quote data
             if hasattr(ticker, 'bid') and hasattr(ticker, 'ask'):
                 if ticker.bid > 0 and ticker.ask > 0:
-                    quote_data = QuoteData(
+                    quote_data = QuoteUpdate(
                         symbol=symbol,
                         bid_price=float(ticker.bid),
                         ask_price=float(ticker.ask),
@@ -327,13 +327,13 @@ class AsyncIBKRAdapter:
         return getattr(self.adapter, name)
 
 # Factory function for easy instantiation
-def create_ibkr_adapter(host: str = "127.0.0.1", port: int = 7497, client_id: int = 1) -> AsyncIBKRAdapter:
+def create_ibkr_adapter(host: str = "127.0.0.1", port: int = 4002, client_id: int = 1) -> AsyncIBKRAdapter:
     """
     Create and configure IBKR adapter
     
     Args:
-        host: IBKR TWS/Gateway host (default: 127.0.0.1)
-        port: IBKR TWS/Gateway port (7497 for paper, 7496 for live)
+        host: IBKR Gateway host (default: 127.0.0.1)
+        port: IBKR Gateway port (4002 for paper, 4001 for live)
         client_id: Unique client ID for this connection
     
     Returns:

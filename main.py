@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 """
 Chimera Trading System v2.0 - Main Application
-Complete algorithmic trading system with ML enhancement
+Complete algorithmic trading system with REAL IBKR data integration
 
 Usage:
     python main.py [command] [options]
 
 Commands:
-    run         - Start the complete trading system
+    run         - Start the complete trading system with REAL IBKR data
     test        - Run integration tests
-    demo        - Run demonstration with mock data
     optimize    - Run genetic algorithm optimization
     backtest    - Run backtesting on historical data
     
 Options:
-    --symbol SYMBOL     - Trading symbol (default: MOCK)
-    --duration SECONDS  - Simulation duration (default: 300)
-    --updates-per-sec N - Market updates per second (default: 50)
+    --symbol SYMBOL     - Trading symbol (default: AAPL)
     --no-ml            - Disable ML components
     --no-gui           - Run in headless mode
     --config FILE      - Configuration file path
@@ -39,19 +36,18 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core import (
     DataOrchestrator, FeatureEngine, SignalDetector, SubscriptionConfig
 )
-from data import (
-    MockDataGenerator, MarketSimulator, SimulationConfig, MarketScenario
-)
+from data.ibkr_adapter import create_ibkr_adapter
 from ml import (
     MarketRegimeDetector, SignalClassifier, RLExitAgent, GeneticOptimizer
 )
 from core.signal_detector import SignalType
 from tests.test_integration import run_integration_tests
+from ibkr_handlers import IBKRDataHandlers
 
 
 class ChimeraTradingSystem:
     """
-    Main trading system orchestrator
+    Main trading system orchestrator - REAL IBKR DATA ONLY
     """
     
     def __init__(self, config: Dict[str, Any]):
@@ -64,14 +60,15 @@ class ChimeraTradingSystem:
         self.feature_engine = None
         self.signal_detector = None
         
+        # IBKR components
+        self.ibkr_adapter = None
+        self.ibkr_handlers = None
+        
         # ML components
         self.regime_detector = None
         self.signal_classifier = None
         self.rl_agents: Dict[str, RLExitAgent] = {}
         self.genetic_optimizer = None
-        
-        # Market simulation
-        self.market_simulator = None
         
         # Statistics
         self.stats = {
@@ -79,7 +76,8 @@ class ChimeraTradingSystem:
             'signals_generated': 0,
             'trades_executed': 0,
             'ml_predictions': 0,
-            'regime_changes': 0
+            'regime_changes': 0,
+            'ibkr_updates': 0
         }
         
         # Setup signal handlers for graceful shutdown
@@ -94,13 +92,16 @@ class ChimeraTradingSystem:
     def initialize(self) -> bool:
         """Initialize all system components"""
         try:
-            print("Initializing Chimera Trading System...")
+            print("Initializing Chimera Trading System with REAL IBKR data...")
             
             # Initialize core components
             db_path = self.config.get('database_path', 'chimera_market_data.db')
             self.data_orchestrator = DataOrchestrator(db_path)
             self.feature_engine = FeatureEngine()
             self.signal_detector = SignalDetector(self.feature_engine)
+            
+            # Initialize IBKR handlers
+            self.ibkr_handlers = IBKRDataHandlers(self)
             
             # Initialize ML components if enabled
             if not self.config.get('no_ml', False):
@@ -114,48 +115,46 @@ class ChimeraTradingSystem:
                     self.genetic_optimizer.create_simple_backtest_function()
                 )
             
-            print("✓ System initialization completed")
+            print("✅ System initialization completed")
+            print("✅ Ready for REAL IBKR data connection")
             return True
             
         except Exception as e:
             print(f"❌ Initialization failed: {e}")
             return False
     
-    def start_market_simulation(self) -> bool:
-        """Start market data simulation"""
+    def start_ibkr_connection(self) -> bool:
+        """Start real IBKR Gateway connection"""
         try:
-            symbols = self.config.get('symbols', ['MOCK'])
-            duration = self.config.get('duration', 300)
-            updates_per_sec = self.config.get('updates_per_second', 50)
+            symbols = self.config.get('symbols', ['AAPL', 'MSFT', 'GOOGL'])
             
-            print(f"Starting market simulation for {symbols}")
-            print(f"Duration: {duration}s, Updates/sec: {updates_per_sec}")
+            print(f"Connecting to IBKR Gateway for real data: {symbols}")
+            print("Using IBKR Gateway on port 4002 (paper trading)")
             
-            # Create simulation config
-            sim_config = SimulationConfig(
-                instruments=symbols,
-                duration_seconds=duration,
-                updates_per_second=updates_per_sec,
-                scenarios={},
-                correlation_matrix={},
-                enable_cross_asset_effects=len(symbols) > 1,
-                enable_news_events=True
+            # Create IBKR adapter
+            self.ibkr_adapter = create_ibkr_adapter(
+                host=self.config.get('ibkr_host', '127.0.0.1'),
+                port=self.config.get('ibkr_port', 4002),
+                client_id=self.config.get('ibkr_client_id', 1)
             )
             
-            # Create and start simulator
-            self.market_simulator = MarketSimulator(sim_config)
+            # Start IBKR connection
+            if not self.ibkr_adapter.start():
+                raise ConnectionError("Failed to connect to IBKR Gateway")
             
-            # Subscribe to market events
-            self.market_simulator.add_event_callback(self._handle_market_event)
+            # Subscribe to real market data
+            for symbol in symbols:
+                print(f"Subscribing to real Level 2 data for {symbol}")
+                self.ibkr_adapter.subscribe_level2(symbol, self.ibkr_handlers.handle_level2_update)
+                self.ibkr_adapter.subscribe_trades(symbol, self.ibkr_handlers.handle_trade_update)
+                self.ibkr_adapter.subscribe_quotes(symbol, self.ibkr_handlers.handle_quote_update)
             
-            # Start simulation
-            self.market_simulator.start_simulation()
-            
-            print("✓ Market simulation started")
+            print("✅ IBKR Gateway connection established")
+            print("✅ Real market data subscriptions active")
             return True
             
         except Exception as e:
-            print(f"❌ Failed to start market simulation: {e}")
+            print(f"❌ Failed to connect to IBKR Gateway: {e}")
             return False
     
     def start_trading_engine(self) -> bool:

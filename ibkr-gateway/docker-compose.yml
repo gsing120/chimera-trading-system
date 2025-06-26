@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  ibkr-gateway:
+    build: .
+    container_name: ibkr-gateway
+    environment:
+      # IBKR Connection Settings
+      - IBKR_HOST=127.0.0.1
+      - IBKR_PORT=4002  # 4002 for paper, 4001 for live Gateway
+      - IBKR_CLIENT_ID=1
+      # Account Settings
+      - ACCOUNT_CODE=DU2838017  # Your paper or live account number
+      - DISPLAY=:1
+    ports:
+      # Gateway API ports
+      - "4001:4001"   # Gateway API port for live trading
+      - "4002:4002"   # Gateway API port for paper trading
+      # VNC port for remote GUI access
+      - "5900:5900"
+    volumes:
+      # Persist IBKR settings and logs
+      - ibkr_data:/home/ibkr/Jts
+      - ibkr_logs:/opt/ibkr/IBGateway/logs
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+volumes:
+  ibkr_data:
+  ibkr_logs:
+

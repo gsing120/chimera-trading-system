@@ -1,10 +1,8 @@
 """
 Chimera Trading System v2.0 - Data Module
-Market data generation, simulation, and interface management
+Real IBKR data integration only - NO SIMULATIONS
 """
 
-from .mock_data_generator import MockDataGenerator, MarketScenario, MarketRegime
-from .market_simulator import MarketSimulator, SimulationConfig
 from .data_interface import (
     DataSourceInterface, DataSourceType, DataSourceRegistry,
     Level2Update, TradeUpdate, QuoteUpdate, BarUpdate, NewsUpdate,
@@ -12,16 +10,9 @@ from .data_interface import (
     register_data_source, get_data_source, set_active_data_source,
     get_active_data_source, list_data_sources
 )
-from .mock_adapter import MockDataSourceAdapter
+from .ibkr_adapter import IBKRAdapter, create_ibkr_adapter
 
 __all__ = [
-    # Mock data generation
-    'MockDataGenerator',
-    'MarketScenario', 
-    'MarketRegime',
-    'MarketSimulator',
-    'SimulationConfig',
-    
     # Data interface
     'DataSourceInterface',
     'DataSourceType',
@@ -36,7 +27,8 @@ __all__ = [
     'IBKRDataSource',
     'AlpacaDataSource', 
     'PolygonDataSource',
-    'MockDataSourceAdapter',
+    'IBKRAdapter',
+    'create_ibkr_adapter',
     
     # Registry functions
     'register_data_source',
